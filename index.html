@@ -229,32 +229,71 @@
       }
     }
 
-    async function isInsideRoot(parents) {
-      if (!parents || parents.length === 0) return false;
-      let currentId = parents.slice(0, 1).pop();
-      let depth = 0;
-      while (currentId && depth < 15) {
-        if (currentId === ROOT_FOLDER_ID) return true;
-        try {
-          const data = await fetchDrive("https://www.googleapis.com/drive/v3/files/" + currentId + "?fields=parents&key=" + API_KEY);
-          currentId = (data.parents && data.parents.length > 0) ? data.parents.slice(0, 1).pop() : null;
-        } catch (e) {
-          return false;
-        }
-        depth++;
+       let fullArchiveIndex = null;
+
+    async function buildFullIndex() {
+      if (fullArchiveIndex) return fullArchiveIndex;
+      let allItems = [];
+      let queue = [{ id: ROOT_FOLDER_ID, name: await getFolderName(ROOT_FOLDER_ID) }];
+
+      while (queue.length > 0) {
+        const current = queue.shift();
+        let pageToken = "";
+        do {
+          const q = encodeURIComponent("'" + current.id + "' in parents and trashed = false");
+          const fields = encodeURIComponent("nextPageToken, files(id, name, mimeType, webViewLink, thumbnailLink)");
+          const url = "https://googleapis.com" + q + "&fields=" + fields + "&pageSize=1000&key=" + API_KEY + (pageToken ? "&pageToken=" + pageToken : "");
+          const data = await fetchDrive(url);
+
+          (data.files || []).forEach(function(item) {
+            const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
+            if (isFolder) {
+              folderNameCache[item.id] = item.name;
+              queue.push({ id: item.id, name: item.name });
+            }
+            allItems.push({
+              id: item.id,
+              name: item.name,
+              url: item.webViewLink || "https://google.com" + item.id + "/view",
+              folder: current.name,
+              isFolder: isFolder,
+              isImage: item.mimeType.indexOf('image/') === 0,
+              thumb: item.thumbnailLink ? item.thumbnailLink.replace('=s220', '=s400') : "https://googleusercontent.com" + item.id + "=w400"
+            });
+          });
+          pageToken = data.nextPageToken || "";
+        } while (pageToken);
       }
-      return false;
+      fullArchiveIndex = allItems;
+      return allItems;
     }
 
     async function doSearch() {
-      const query = document.getElementById('searchInput').value.trim();
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
       if (!query) return;
       isSearching = true;
       scrollToTop();
       updateBackButton();
       document.getElementById('loader').style.display = 'block';
+      document.getElementById('loader').innerText = 'Ricerca in tutto l\'archivio...';
       document.getElementById('content').innerHTML = '';
       document.getElementById('breadcrumb').innerHTML = '🔍 "' + query + '"';
+
+      try {
+        const index = await buildFullIndex();
+        const terms = query.split(/\s+/);
+        const matches = index.filter(function(item) {
+          const lowerName = item.name.toLowerCase();
+          return terms.every(function(t) { return lowerName.indexOf(t) !== -1; });
+        });
+        document.getElementById('loader').innerText = 'Caricamento archivio in corso...';
+        renderSearch(matches);
+      } catch (err) {
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('content').innerHTML = '<div class="error-msg">Errore durante la ricerca. Riprova tra poco.</div>';
+      }
+    }
+
 
       try {
         const safeQ = query.replace(/'/g, "\\'");
