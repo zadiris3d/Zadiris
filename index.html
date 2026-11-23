@@ -61,6 +61,7 @@
     let currentFileList = [];
     let renderedCount = 0;
     const BATCH_SIZE = 60;
+    let fullArchiveIndex = null;
 
     window.onload = function() { loadFolder(ROOT_FOLDER_ID, true); };
 
@@ -95,6 +96,7 @@
       isSearching = false;
       scrollToTop();
       document.getElementById('loader').style.display = 'block';
+      document.getElementById('loader').innerText = 'Caricamento archivio in corso...';
       document.getElementById('content').innerHTML = '';
 
       try {
@@ -147,13 +149,13 @@
       if (isSearching) {
         isSearching = false;
         document.getElementById('searchInput').value = '';
-        const currentId = historyStack.length > 0 ? historyStack.slice(-1).pop() : ROOT_FOLDER_ID;
+        const currentId = historyStack.length > 0 ? historyStack[historyStack.length - 1] : ROOT_FOLDER_ID;
         loadFolder(currentId, false);
         return;
       }
       if (historyStack.length > 1) {
         historyStack.pop();
-        const prevId = historyStack.slice(-1).pop();
+        const prevId = historyStack[historyStack.length - 1];
         loadFolder(prevId, false);
       }
     }
@@ -229,8 +231,6 @@
       }
     }
 
-       let fullArchiveIndex = null;
-
     async function buildFullIndex() {
       if (fullArchiveIndex) return fullArchiveIndex;
       let allItems = [];
@@ -242,7 +242,7 @@
         do {
           const q = encodeURIComponent("'" + current.id + "' in parents and trashed = false");
           const fields = encodeURIComponent("nextPageToken, files(id, name, mimeType, webViewLink, thumbnailLink)");
-          const url = "https://googleapis.com" + q + "&fields=" + fields + "&pageSize=1000&key=" + API_KEY + (pageToken ? "&pageToken=" + pageToken : "");
+          const url = "https://www.googleapis.com/drive/v3/files?q=" + q + "&fields=" + fields + "&pageSize=1000&key=" + API_KEY + (pageToken ? "&pageToken=" + pageToken : "");
           const data = await fetchDrive(url);
 
           (data.files || []).forEach(function(item) {
@@ -254,11 +254,11 @@
             allItems.push({
               id: item.id,
               name: item.name,
-              url: item.webViewLink || "https://google.com" + item.id + "/view",
+              url: item.webViewLink || "https://drive.google.com/file/d/" + item.id + "/view",
               folder: current.name,
               isFolder: isFolder,
               isImage: item.mimeType.indexOf('image/') === 0,
-              thumb: item.thumbnailLink ? item.thumbnailLink.replace('=s220', '=s400') : "https://googleusercontent.com" + item.id + "=w400"
+              thumb: item.thumbnailLink ? item.thumbnailLink.replace('=s220', '=s400') : "https://lh3.googleusercontent.com/d/" + item.id + "=w400"
             });
           });
           pageToken = data.nextPageToken || "";
@@ -275,7 +275,7 @@
       scrollToTop();
       updateBackButton();
       document.getElementById('loader').style.display = 'block';
-      document.getElementById('loader').innerText = 'Ricerca in tutto l\'archivio...';
+      document.getElementById('loader').innerText = "Ricerca in tutto l'archivio...";
       document.getElementById('content').innerHTML = '';
       document.getElementById('breadcrumb').innerHTML = '🔍 "' + query + '"';
 
@@ -287,39 +287,6 @@
           return terms.every(function(t) { return lowerName.indexOf(t) !== -1; });
         });
         document.getElementById('loader').innerText = 'Caricamento archivio in corso...';
-        renderSearch(matches);
-      } catch (err) {
-        document.getElementById('loader').style.display = 'none';
-        document.getElementById('content').innerHTML = '<div class="error-msg">Errore durante la ricerca. Riprova tra poco.</div>';
-      }
-    }
-
-
-      try {
-        const safeQ = query.replace(/'/g, "\\'");
-        const q = encodeURIComponent("name contains '" + safeQ + "' and trashed = false");
-        const fields = encodeURIComponent("files(id, name, mimeType, webViewLink, thumbnailLink, parents)");
-        const url = "https://www.googleapis.com/drive/v3/files?q=" + q + "&fields=" + fields + "&pageSize=300&key=" + API_KEY;
-        const data = await fetchDrive(url);
-
-        let matches = [];
-        const items = data.files || [];
-        for (let i = 0; i < items.length; i++) {
-          const item = items.slice(i, i + 1).pop();
-          if (await isInsideRoot(item.parents)) {
-            const parentId = (item.parents && item.parents.length > 0) ? item.parents.slice(0, 1).pop() : null;
-            const parentName = parentId ? await getFolderName(parentId) : "Archivio";
-            matches.push({
-              id: item.id,
-              name: item.name,
-              url: item.webViewLink || "https://drive.google.com/file/d/" + item.id + "/view",
-              folder: parentName,
-              isFolder: item.mimeType === 'application/vnd.google-apps.folder',
-              isImage: item.mimeType.indexOf('image/') === 0,
-              thumb: item.thumbnailLink ? item.thumbnailLink.replace('=s220', '=s400') : "https://lh3.googleusercontent.com/d/" + item.id + "=w400"
-            });
-          }
-        }
         renderSearch(matches);
       } catch (err) {
         document.getElementById('loader').style.display = 'none';
