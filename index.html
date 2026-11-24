@@ -1,3 +1,10 @@
+ <!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Archivio Zadirs3D</title>
+  <link href="https://googleapis.com" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; background: #000000; color: #e8eaed; }
@@ -22,17 +29,19 @@
       font-family: 'Trebuchet MS', 'Courier New', sans-serif;
       font-weight: 700;
       font-size: 15px;
-      text-transform: uppercase; /* Rende tutti i nomi delle cartelle in MAIUSCOLO */
+      text-transform: uppercase;
       background: #1a2639;
       color: #8ab4f8;
       border-color: #2b3f5c;
+      cursor: pointer;
     }
     .folder-card:hover { background: #23334d; border-color: #466594; }
+    .folder-icon { font-size: 20px; flex-shrink: 0; line-height: 1; }
     .card-link { text-decoration: none; color: inherit; display: block; }
     .thumb { width: 100%; height: 115px; object-fit: cover; border-radius: 6px; background: #202124; margin-bottom: 6px; display: block; }
     .icon-box { width: 100%; height: 115px; display: flex; align-items: center; justify-content: center; font-size: 32px; background: #202124; border-radius: 6px; margin-bottom: 6px; color: #9aa0a6; }
     .file-name { font-size: 12px; word-break: break-word; line-height: 1.3; font-weight: 500; color: #e8eaed; }
-    .folder-badge { font-size: 11px; color: #9aa0a6; margin-top: 3px; }
+    .folder-badge { font-size: 11px; color: #9aa0a6; margin-top: 3px; text-transform: none; }
     .price-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
     .price-badge { background: #133b22; color: #81c995; font-weight: 700; font-size: 12px; padding: 3px 8px; border-radius: 12px; display: inline-block; }
     .contact-btn { background: #25D366; color: #fff; text-decoration: none; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 12px; display: inline-block; }
@@ -41,7 +50,6 @@
     .load-more-wrap { text-align: center; margin: 24px 0; }
     .error-msg { background: #5c2b29; color: #f28b82; padding: 14px; border-radius: 8px; font-size: 14px; }
   </style>
-
 </head>
 <body>
   <div class="app-wrapper">
@@ -76,6 +84,161 @@
     let currentFileList = [];
     let renderedCount = 0;
     const BATCH_SIZE = 60;
+
+    // Abbinamento automatico emoji -> nome cartella
+    const FOLDER_EMOJIS = {
+      // Cartelle principali
+      "accessori per capelli": "🎀",
+      "calamite": "🧲",
+      "cliker": "🔘",
+      "clicker": "🔘",
+      "copertura switch 2": "🎮",
+      "copri chiave": "🔑",
+      "decorazione parete": "🖼️",
+      "ferma tenda": "🪟",
+      "figur": "🗿",
+      "figure": "🗿",
+      "logo": "🏷️",
+      "pokeball": "🔴",
+      "porta carta di credito": "💳",
+      "porta carta igienica": "🧻",
+      "porta chiavi": "🗝️",
+      "portachiavi": "🗝️",
+      "porta cuffie": "🎧",
+      "porta deck": "🃏",
+      "porta dolci/oggetti": "🍬",
+      "porta figur": "🏛️",
+      "porta giochi": "🕹️",
+      "porta joystick": "🎮",
+      "porta penne": "🖊️",
+      "porta sapone": "🧼",
+      "porta telefono - tablet": "📱",
+      "porta telefono- tablet": "📱",
+      "porta vaso": "🪴",
+      "quadretti": "🖼️",
+      "scatole": "📦",
+      "supporti per manga e libri": "📚",
+      "varie": "✨",
+
+      // Sottocartelle (Anime, Giochi, Temi)
+      "7 peccati capitali": "🦁",
+      "alberi": "🌳",
+      "animal": "🐾",
+      "animali": "🐾",
+      "assasins creed": "🦅",
+      "assassins creed": "🦅",
+      "asterix e obelix": "🛡️",
+      "big hero": "🤖",
+      "black clover": "🍀",
+      "bleach": "⚔️",
+      "blue lock": "⚽",
+      "chainsaw man": "🪚",
+      "cibo": "🍔",
+      "clair obscur: expedition 33": "🎨",
+      "clair obscur": "🎨",
+      "classiche": "🔴",
+      "cross over": "🔀",
+      "cult of the lamb": "🐑",
+      "d&d": "🐉",
+      "dan da dan": "🛸",
+      "dc comics": "🦇",
+      "dcmarvel": "🦸",
+      "death note": "📓",
+      "demon hunter": "🗡️",
+      "demon slayer": "🌊",
+      "digimon": "🦖",
+      "digital circus": "🎪",
+      "disney": "🏰",
+      "doraemon": "🔔",
+      "dragon ball": "🟠",
+      "dragon quest": "🛡️",
+      "dragon trainer": "🐲",
+      "fairy tail": "👆",
+      "fantasma": "👻",
+      "fate stay night": "⚔️",
+      "final fantasy": "🗡️",
+      "fire force": "🔥",
+      "five nights at freddy's": "🐻",
+      "frieren": "🪄",
+      "frozen": "❄️",
+      "futurama": "🚀",
+      "gachakuta": "🧤",
+      "garfield": "🐈",
+      "genshin impact": "✨",
+      "gibli": "🍃",
+      "ghibli": "🍃",
+      "gremlins": "👾",
+      "grinch": "🎄",
+      "halloween": "🎃",
+      "harry potter": "⚡",
+      "hollow kight": "🪲",
+      "hollow knight": "🪲",
+      "inside out": "🧠",
+      "jujutsu kaisen": "🤞",
+      "kingdom hearts": "🗝️",
+      "kirby": "🩷",
+      "kuroko no backet": "🏀",
+      "kuroko no basket": "🏀",
+      "l'attacco dei giganti": "🧱",
+      "l'era glaciale": "🦣",
+      "la bella e la bestia": "🥀",
+      "labubu": "🐰",
+      "league of legends": "🏆",
+      "looney tunes": "🥕",
+      "madagascar": "🦓",
+      "marvel": "🦸",
+      "minion": "🍌",
+      "monster & co": "🚪",
+      "monster hunter": "🦖",
+      "monrster hunter": "🦖",
+      "my hero accademia": "💥",
+      "my hero academia": "💥",
+      "naruto": "🍥",
+      "natale": "🎅",
+      "neon genesis evangelion": "🤖",
+      "neon genesis": "🤖",
+      "nier automata": "🤖",
+      "nikki": "👗",
+      "nintendo": "🍄",
+      "oceania": "🌺",
+      "one piece": "🏴‍☠️",
+      "pac man": "🟡",
+      "piante vs zombi": "🌻",
+      "pinky and the brain": "🐭",
+      "pokemon": "⚡",
+      "re zero": "🔮",
+      "sailor moon": "🌙",
+      "sanrio": "🎀",
+      "shaun, vita da pecora": "🐑",
+      "snoopy": "🐶",
+      "solo leveling": "🗡️",
+      "sonic": "💨",
+      "spongebob": "🧽",
+      "spy x family": "🥜",
+      "spyro": "🟣",
+      "star wars": "🌌",
+      "stardew valley": "🌾",
+      "stitch": "💙",
+      "super mario": "🍄",
+      "sword art online": "⚔️",
+      "the legend of zelda": "🔺",
+      "topolino": "🐭",
+      "toy story": "🤠",
+      "vocaloid": "🎤",
+      "wall-e": "🌱",
+      "winnie pooh": "🍯",
+      "zootropolis": "🦊"
+    };
+
+    function getFolderEmoji(name) {
+      if (!name) return "📁";
+      const clean = String(name).trim().toLowerCase();
+      if (FOLDER_EMOJIS[clean]) return FOLDER_EMOJIS[clean];
+      for (const key in FOLDER_EMOJIS) {
+        if (clean.indexOf(key) !== -1) return FOLDER_EMOJIS[key];
+      }
+      return "📁";
+    }
 
     window.onload = function() {
       loadFolder(ROOT_FOLDER_ID, true);
@@ -222,13 +385,15 @@
     function renderFolder(data) {
       document.getElementById("loader").style.display = "none";
       updateBackButton();
-      document.getElementById("breadcrumb").textContent = "📂 " + data.folderName;
+      const headerEmoji = data.folderId === ROOT_FOLDER_ID ? "📂" : getFolderEmoji(data.folderName);
+      document.getElementById("breadcrumb").textContent = headerEmoji + " " + data.folderName;
 
       let html = "";
       if (data.folders.length > 0) {
         html += '<div class="section-title">Cartelle (' + data.folders.length + ')</div><div class="grid">';
         data.folders.forEach(function(f) {
-          html += '<div class="card folder-card" data-fid="' + escapeHtml(f.id) + '" onclick="loadFolder(this.dataset.fid, true)">📁 <span>' + escapeHtml(f.name) + '</span></div>';
+          const emoji = getFolderEmoji(f.name);
+          html += '<div class="card folder-card" data-fid="' + escapeHtml(f.id) + '" onclick="loadFolder(this.dataset.fid, true)"><span class="folder-icon">' + emoji + '</span> <span>' + escapeHtml(f.name) + '</span></div>';
         });
         html += '</div>';
       }
@@ -384,7 +549,8 @@
       if (folders.length > 0) {
         html += '<div class="grid" style="margin-bottom:14px;">';
         folders.forEach(function(item) {
-          html += '<div class="card folder-card" data-fid="' + escapeHtml(item.id) + '" onclick="loadFolder(this.dataset.fid, true)">📁 <div><div>' + escapeHtml(item.name) + '</div><div class="folder-badge">in: ' + escapeHtml(item.folder) + '</div></div></div>';
+          const emoji = getFolderEmoji(item.name);
+          html += '<div class="card folder-card" data-fid="' + escapeHtml(item.id) + '" onclick="loadFolder(this.dataset.fid, true)"><span class="folder-icon">' + emoji + '</span> <div><div>' + escapeHtml(item.name) + '</div><div class="folder-badge">in: ' + escapeHtml(item.folder) + '</div></div></div>';
         });
         html += '</div>';
       }
