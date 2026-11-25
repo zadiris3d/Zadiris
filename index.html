@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8">
@@ -25,6 +25,8 @@
     .folder-card {
       flex-direction: row;
       align-items: center;
+      justify-content: center;
+      text-align: center;
       gap: 8px;
       font-family: 'Trebuchet MS', 'Courier New', sans-serif;
       font-weight: 700;
@@ -206,7 +208,6 @@
       "piante vs zombi": "🌻",
       "pinky and the brain": "🐭",
       "pokemon": "⚡",
-      "re leone": "🔮",
       "re zero": "🔮",
       "sailor moon": "🌙",
       "sanrio": "🎀",
@@ -226,8 +227,8 @@
       "topolino": "🐭",
       "toy story": "🤠",
       "vocaloid": "🎤",
-      "WALL•E": "🌱",
-      "winnie the pooh": "🍯",
+      "wall-e": "🌱",
+      "winnie pooh": "🍯",
       "zootropolis": "🦊"
     };
 
@@ -242,8 +243,36 @@
     }
 
     window.onload = function() {
-      loadFolder(ROOT_FOLDER_ID, true);
+      history.replaceState({ folderId: ROOT_FOLDER_ID, isSearch: false }, "", "#home");
+      loadFolder(ROOT_FOLDER_ID, true, true);
     };
+
+    window.addEventListener("popstate", function(event) {
+      const state = event.state;
+      if (!state) {
+        isSearching = false;
+        document.getElementById("searchInput").value = "";
+        historyStack = [ROOT_FOLDER_ID];
+        loadFolder(ROOT_FOLDER_ID, false, true);
+        return;
+      }
+
+      if (state.isSearch) {
+        document.getElementById("searchInput").value = state.query || "";
+        doSearch(true);
+      } else {
+        isSearching = false;
+        document.getElementById("searchInput").value = "";
+        const targetId = state.folderId || ROOT_FOLDER_ID;
+        const idx = historyStack.lastIndexOf(targetId);
+        if (idx !== -1) {
+          historyStack = historyStack.slice(0, idx + 1);
+        } else {
+          historyStack.push(targetId);
+        }
+        loadFolder(targetId, false, true);
+      }
+    });
 
     function escapeHtml(str) {
       if (!str) return "";
@@ -305,11 +334,15 @@
       return folderNameCache[id];
     }
 
-    async function loadFolder(folderId, pushHistory) {
+    async function loadFolder(folderId, pushHistory, skipBrowserHistory) {
       isSearching = false;
       scrollToTop();
       document.getElementById("loader").style.display = "block";
       document.getElementById("content").innerHTML = "";
+
+      if (pushHistory && !skipBrowserHistory) {
+        history.pushState({ folderId: folderId, isSearch: false }, "", "#folder=" + encodeURIComponent(folderId));
+      }
 
       try {
         if (folderCache[folderId]) {
@@ -362,25 +395,17 @@
     }
 
     function goBack() {
-      if (isSearching) {
-        isSearching = false;
-        document.getElementById("searchInput").value = "";
-        const currentId = historyStack.length > 0 ? historyStack[historyStack.length - 1] : ROOT_FOLDER_ID;
-        loadFolder(currentId, false);
-        return;
-      }
-      if (historyStack.length > 1) {
-        historyStack.pop();
-        const prevId = historyStack[historyStack.length - 1];
-        loadFolder(prevId, false);
+      if (isSearching || historyStack.length > 1) {
+        history.back();
       }
     }
 
     function resetHome() {
       isSearching = false;
       document.getElementById("searchInput").value = "";
-      historyStack = [];
-      loadFolder(ROOT_FOLDER_ID, true);
+      historyStack = [ROOT_FOLDER_ID];
+      history.pushState({ folderId: ROOT_FOLDER_ID, isSearch: false }, "", "#home");
+      loadFolder(ROOT_FOLDER_ID, false, true);
     }
 
     function renderFolder(data) {
@@ -511,9 +536,14 @@
       return allItems;
     }
 
-    async function doSearch() {
+    async function doSearch(skipBrowserHistory) {
       const query = document.getElementById("searchInput").value.trim().toLowerCase();
       if (!query) return;
+
+      if (!skipBrowserHistory) {
+        history.pushState({ isSearch: true, query: query }, "", "#search=" + encodeURIComponent(query));
+      }
+
       isSearching = true;
       scrollToTop();
       updateBackButton();
