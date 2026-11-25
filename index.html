@@ -7,9 +7,21 @@
   <link href="https://googleapis.com" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; background: #000000; color: #e8eaed; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background-color: #000000;
+      background-image: linear-gradient(rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.78)), url('logo.png');
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-size: cover;
+      color: #e8eaed;
+    }
     .app-wrapper { display: flex; flex-direction: column; height: 100vh; width: 100%; }
-    .sticky-top { flex-shrink: 0; background: #121212; padding: 10px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.6); border-bottom: 1px solid #2c2c2c; z-index: 1000; }
+    .sticky-top { flex-shrink: 0; background: rgba(18, 18, 18, 0.92); backdrop-filter: blur(6px); padding: 10px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.6); border-bottom: 1px solid #2c2c2c; z-index: 1000; }
     .search-box { display: flex; gap: 6px; align-items: center; }
     input[type="text"] { flex: 1; min-width: 0; padding: 9px 14px; font-size: 16px; border: 1px solid #3c4043; border-radius: 24px; outline: none; background: #202124; color: #fff; }
     input[type="text"]:focus { background: #292a2d; border-color: #8ab4f8; }
@@ -21,7 +33,7 @@
     .main-container { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 14px 60px; }
     .section-title { font-size: 12px; font-weight: 600; color: #9aa0a6; text-transform: uppercase; margin: 12px 0 8px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-    .card { background: #18191a; border: 1px solid #2c2c2c; border-radius: 10px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; color: inherit; }
+    .card { background: rgba(24, 25, 26, 0.9); border: 1px solid #2c2c2c; border-radius: 10px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; color: inherit; }
     .folder-card {
       flex-direction: row;
       align-items: center;
@@ -32,7 +44,7 @@
       font-weight: 700;
       font-size: 15px;
       text-transform: uppercase;
-      background: #1a2639;
+      background: rgba(26, 38, 57, 0.92);
       color: #8ab4f8;
       border-color: #2b3f5c;
       cursor: pointer;
@@ -87,9 +99,7 @@
     let renderedCount = 0;
     const BATCH_SIZE = 60;
 
-    // Abbinamento automatico emoji -> nome cartella
     const FOLDER_EMOJIS = {
-      // Cartelle principali
       "accessori per capelli": "🎀",
       "calamite": "🧲",
       "cliker": "🔘",
@@ -121,8 +131,6 @@
       "scatole": "📦",
       "supporti per manga e libri": "📚",
       "vaso": "✨",
-
-      // Sottocartelle (Anime, Giochi, Temi)
       "7 peccati capitali": "🦁",
       "alberi": "🌳",
       "animal": "🐾",
@@ -243,36 +251,31 @@
     }
 
     window.onload = function() {
-      history.replaceState({ folderId: ROOT_FOLDER_ID, isSearch: false }, "", "#home");
+      history.replaceState({ folderId: ROOT_FOLDER_ID, isSearch: false }, "");
       loadFolder(ROOT_FOLDER_ID, true, true);
     };
 
-    window.addEventListener("popstate", function(event) {
+    window.onpopstate = function(event) {
       const state = event.state;
       if (!state) {
         isSearching = false;
         document.getElementById("searchInput").value = "";
-        historyStack = [ROOT_FOLDER_ID];
-        loadFolder(ROOT_FOLDER_ID, false, true);
+        historyStack = [];
+        loadFolder(ROOT_FOLDER_ID, true, true);
         return;
       }
-
       if (state.isSearch) {
         document.getElementById("searchInput").value = state.query || "";
         doSearch(true);
       } else {
         isSearching = false;
         document.getElementById("searchInput").value = "";
-        const targetId = state.folderId || ROOT_FOLDER_ID;
-        const idx = historyStack.lastIndexOf(targetId);
-        if (idx !== -1) {
-          historyStack = historyStack.slice(0, idx + 1);
-        } else {
-          historyStack.push(targetId);
+        if (historyStack.length > 1) {
+          historyStack.pop();
         }
-        loadFolder(targetId, false, true);
+        loadFolder(state.folderId || ROOT_FOLDER_ID, false, true);
       }
-    });
+    };
 
     function escapeHtml(str) {
       if (!str) return "";
@@ -334,19 +337,20 @@
       return folderNameCache[id];
     }
 
-    async function loadFolder(folderId, pushHistory, skipBrowserHistory) {
+    async function loadFolder(folderId, pushHistory, skipBrowserPush) {
       isSearching = false;
       scrollToTop();
       document.getElementById("loader").style.display = "block";
       document.getElementById("content").innerHTML = "";
 
-      if (pushHistory && !skipBrowserHistory) {
-        history.pushState({ folderId: folderId, isSearch: false }, "", "#folder=" + encodeURIComponent(folderId));
-      }
-
       try {
         if (folderCache[folderId]) {
-          if (pushHistory) historyStack.push(folderId);
+          if (pushHistory) {
+            historyStack.push(folderId);
+            if (!skipBrowserPush) {
+              history.pushState({ folderId: folderId, isSearch: false }, "");
+            }
+          }
           renderFolder(folderCache[folderId]);
           return;
         }
@@ -385,7 +389,12 @@
 
         const result = { folderId: folderId, folderName: folderName, folders: folders, files: files };
         folderCache[folderId] = result;
-        if (pushHistory) historyStack.push(folderId);
+        if (pushHistory) {
+          historyStack.push(folderId);
+          if (!skipBrowserPush) {
+            history.pushState({ folderId: folderId, isSearch: false }, "");
+          }
+        }
         renderFolder(result);
 
       } catch (err) {
@@ -395,17 +404,14 @@
     }
 
     function goBack() {
-      if (isSearching || historyStack.length > 1) {
-        history.back();
-      }
+      history.back();
     }
 
     function resetHome() {
       isSearching = false;
       document.getElementById("searchInput").value = "";
-      historyStack = [ROOT_FOLDER_ID];
-      history.pushState({ folderId: ROOT_FOLDER_ID, isSearch: false }, "", "#home");
-      loadFolder(ROOT_FOLDER_ID, false, true);
+      historyStack = [];
+      loadFolder(ROOT_FOLDER_ID, true, false);
     }
 
     function renderFolder(data) {
@@ -419,7 +425,7 @@
         html += '<div class="section-title">Cartelle (' + data.folders.length + ')</div><div class="grid">';
         data.folders.forEach(function(f) {
           const emoji = getFolderEmoji(f.name);
-          html += '<div class="card folder-card" data-fid="' + escapeHtml(f.id) + '" onclick="loadFolder(this.dataset.fid, true)"><span class="folder-icon">' + emoji + '</span> <span>' + escapeHtml(f.name) + '</span></div>';
+          html += '<div class="card folder-card" data-fid="' + escapeHtml(f.id) + '" onclick="loadFolder(this.dataset.fid, true, false)"><span class="folder-icon">' + emoji + '</span> <span>' + escapeHtml(f.name) + '</span></div>';
         });
         html += '</div>';
       }
@@ -536,17 +542,15 @@
       return allItems;
     }
 
-    async function doSearch(skipBrowserHistory) {
+    async function doSearch(skipBrowserPush) {
       const query = document.getElementById("searchInput").value.trim().toLowerCase();
       if (!query) return;
-
-      if (!skipBrowserHistory) {
-        history.pushState({ isSearch: true, query: query }, "", "#search=" + encodeURIComponent(query));
-      }
-
       isSearching = true;
       scrollToTop();
       updateBackButton();
+      if (!skipBrowserPush) {
+        history.pushState({ isSearch: true, query: query }, "");
+      }
       document.getElementById("loader").style.display = "block";
       document.getElementById("loader").textContent = "Ricerca in tutto l'archivio...";
       document.getElementById("content").innerHTML = "";
@@ -581,7 +585,7 @@
         html += '<div class="grid" style="margin-bottom:14px;">';
         folders.forEach(function(item) {
           const emoji = getFolderEmoji(item.name);
-          html += '<div class="card folder-card" data-fid="' + escapeHtml(item.id) + '" onclick="loadFolder(this.dataset.fid, true)"><span class="folder-icon">' + emoji + '</span> <div><div>' + escapeHtml(item.name) + '</div><div class="folder-badge">in: ' + escapeHtml(item.folder) + '</div></div></div>';
+          html += '<div class="card folder-card" data-fid="' + escapeHtml(item.id) + '" onclick="loadFolder(this.dataset.fid, true, false)"><span class="folder-icon">' + emoji + '</span> <div><div>' + escapeHtml(item.name) + '</div><div class="folder-badge">in: ' + escapeHtml(item.folder) + '</div></div></div>';
         });
         html += '</div>';
       }
